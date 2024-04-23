@@ -1,0 +1,54 @@
+---
+title: "Mixed Effects Modeling"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+With these speech data among Southern broadcasters, the "AY" vowel (as in 'fly' or 'lie') was pornounced over 13,000 times. And because this vowel is distinct among those with 'Southern accents', trajectory length will be measured here, with a shorter length being more "Southern". In this mixed-effects modeling, demographic predictors will be tested, so "speaker" will be treated as a random effect; this is also done because there is an imbalance of data tokens per speaker. The following fits the categorical data into a model and tests which factors are statistically significant and then validates the model by finding out whether the model residuals show normality. 
+
+```{r cars}
+summary(cars)
+```
+
+AY <- read_excel("Desktop/diss/working/data/dataTreated.xlsx") 
+
+#Below, the categorical variables are releveled so that the reference category is always the most commonly represented demogrpahic factor, here being 'Deep South' White males under age 40 in the position of anchor. Relevel the cateogrical dat a using contrast coding 
+AY$Subregions <- relevel(factor(AY$Subregion), ref="Deep South")
+contrasts(AY$Subregions) <- contr.sum(2) 
+AY$Ethnicities <- relevel(factor(AY$Ethnicity), ref="White")
+contrasts(AY$Ethnicities) <- contr.sum(2) 
+AY$Positions <- factor(AY$Position, labels=c("Anchor", "Meteorologist", "Reporter", "Sports"))
+contrasts(AY$Positions) <- contr.sum(4) 
+tapply(AY$ED, AY$Positions, mean)#verify the positions are labeled correctly by checking mean values 
+AY$CollegeSouthern <- relevel(factor(AY$SouthernCollege), ref="Yes")
+contrasts(AY$CollegeSouthern) <- contr.sum(2) 
+AY$Age40 <- relevel(factor(AY$Age), ref="under 40")
+contrasts(AY$Age40) <- contr.sum(2) 
+AY$Genders <- relevel(factor(AY$Gender), ref="Male")
+contrasts(AY$Genders) <- contr.sum(2) 
+
+
+AYRef.lmer <- lmer(ED ~  Market.Size + Genders + Positions + Subregion + CollegeSouthern + Ethnicities + Age40 + (1 | Speaker), data=AY) #first include all effects in the model, with speaker using a random intercept with the (1|) syntax
+anova(AYRef.lmer) #use anonva to find p-values 
+summ(AYRef.lmer)
+step(AYRef.lmer)
+glimpse(AYRef.lmer) #check factor weights for categorical variables 
+BIC(step.model)#use the step functions to test which indpendent predictors to use 
+summary(AYRef.lmer)
+glimpse(AYRef.lmer)
+ols_step_forward_p(AYRef.lmer)
+newAYRef.lmer <- lmer(ED ~ Genders + Subregion + Positions + (1 | Speaker), data=AY, REML = FALSE) #use only the more significant predictors 
+anova(newAYRef.lmer)
+glimpse(newAYRef.lmer)#check factor weights for categorical variables 
+summ(newAYRef.lmer)
+resAY <- residuals(newAYRef.lmer)
+qqnorm(resAY, pch = 1, frame = FALSE) #qqnorm line follows the residuals, showing a normal distribution 
+qqline(resAY, col = "steelblue", lwd = 2)
+hist(resAY) #histogram of the model residuals show a normal curve, which helps validate the model 
+
+
